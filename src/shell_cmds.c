@@ -55,7 +55,7 @@ static void leg(const struct shell *sh, const char *field, const char *meaning)
 	shell_print(sh, "%s", meaning);
 }
 
-/** @brief `uwb start` — arm continuous RX. */
+/** @brief `uwb start` - arm continuous RX. */
 static int cmd_start(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc);
@@ -71,7 +71,7 @@ static int cmd_start(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
-/** @brief `uwb stop` — force radio off. */
+/** @brief `uwb stop` - force radio off. */
 static int cmd_stop(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc);
@@ -97,7 +97,7 @@ static int cmd_chan(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
-/** @brief `uwb preamble <code>` — TX+RX preamble code. */
+/** @brief `uwb preamble <code>` - TX+RX preamble code. */
 static int cmd_preamble(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc);
@@ -112,7 +112,7 @@ static int cmd_preamble(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
-/** @brief `uwb plen <symbols>` — preamble length (64/128/256/512). */
+/** @brief `uwb plen <symbols>` - preamble length (64/128/256/512). */
 static int cmd_plen(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc);
@@ -127,7 +127,7 @@ static int cmd_plen(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
-/** @brief `uwb sfd <0..3>` — dwt_sfd_type_e (3 = IEEE 802.15.4z BPRF). */
+/** @brief `uwb sfd <0..3>` - dwt_sfd_type_e (3 = IEEE 802.15.4z BPRF). */
 static int cmd_sfd(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc);
@@ -142,7 +142,7 @@ static int cmd_sfd(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
-/** @brief `uwb sp <0..3>` — STS packet config (0=SP0 off, 3=SP3 no-data). */
+/** @brief `uwb sp <0..3>` - STS packet config (0=SP0 off, 3=SP3 no-data). */
 static int cmd_sp(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc);
@@ -157,7 +157,7 @@ static int cmd_sp(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
-/** @brief `sniff ccc` — retune to the Aliro/CCC ranging PHY (Config 0000). */
+/** @brief `sniff ccc` - retune to the Aliro/CCC ranging PHY (Config 0000). */
 static int cmd_ccc(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc);
@@ -173,7 +173,7 @@ static int cmd_ccc(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
-/** @brief `sniff minpeak <hex>` — only log frames with peak >= value (0 = all). */
+/** @brief `sniff minpeak <hex>` - only log frames with peak >= value (0 = all). */
 static int cmd_minpeak(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc);
@@ -185,7 +185,7 @@ static int cmd_minpeak(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
-/** @brief `sniff summary` — the 1 Hz aggregate gauge (signal bar + round rate). */
+/** @brief `sniff summary` - the 1 Hz aggregate gauge (signal bar + round rate). */
 static int cmd_summary(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc);
@@ -196,7 +196,7 @@ static int cmd_summary(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
-/** @brief `sniff human` — one plain-English line per frame. */
+/** @brief `sniff human` - one plain-English line per frame. */
 static int cmd_human(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc);
@@ -207,7 +207,7 @@ static int cmd_human(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
-/** @brief `sniff raw` — per-frame `UWBCAP key=value` machine lines (for parsing). */
+/** @brief `sniff raw` - per-frame `UWBCAP key=value` machine lines (for parsing). */
 static int cmd_raw(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc);
@@ -237,7 +237,7 @@ static int cmd_raw(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
-/** @brief `sniff raw_pretty` — one compact, colored line per frame. */
+/** @brief `sniff raw_pretty` - one compact, colored line per frame. */
 static int cmd_raw_pretty(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc);
@@ -248,7 +248,7 @@ static int cmd_raw_pretty(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
-/** @brief `sniff burst [N]` — capture N frames to RAM at full speed, then dump. */
+/** @brief `sniff burst [N]` - capture N frames to RAM at full speed, then dump. */
 static int cmd_burst(const struct shell *sh, size_t argc, char **argv)
 {
 	uint32_t n = (argc == 2) ? (uint32_t)strtoul(argv[1], NULL, 0) : 512u;
@@ -265,7 +265,7 @@ static int cmd_burst(const struct shell *sh, size_t argc, char **argv)
 	return err;
 }
 
-/** @brief `sniff scan` — find the live preamble code (Apple negotiates it). */
+/** @brief `sniff scan` - find the live preamble code (Apple negotiates it). */
 static int cmd_scan(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc);
@@ -310,7 +310,7 @@ static int parse_sts_hex(const char *s, uint8_t buf[16])
 	return 0;
 }
 
-/** @brief `sniff stskey <32hex dURSK> | off` — load/clear the custom STS key. */
+/** @brief `sniff stskey <32hex dURSK> | off` - load/clear the custom STS key. */
 static int cmd_stskey(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc);
@@ -338,7 +338,7 @@ static int cmd_stskey(const struct shell *sh, size_t argc, char **argv)
 	return err;
 }
 
-/** @brief `sniff stsiv <32hex STS-V>` — load the custom STS IV / V value. */
+/** @brief `sniff stsiv <32hex STS-V>` - load the custom STS IV / V value. */
 static int cmd_stsiv(const struct shell *sh, size_t argc, char **argv)
 {
 	ARG_UNUSED(argc);
@@ -360,7 +360,7 @@ static int cmd_stsiv(const struct shell *sh, size_t argc, char **argv)
 	return err;
 }
 
-/** @brief `uwb stats [clear]` — per-event counts, or zero them. */
+/** @brief `uwb stats [clear]` - per-event counts, or zero them. */
 static int cmd_stats(const struct shell *sh, size_t argc, char **argv)
 {
 	if (argc == 2 && strcmp(argv[1], "clear") == 0) {
@@ -384,11 +384,11 @@ static int cmd_stats(const struct shell *sh, size_t argc, char **argv)
 	return 0;
 }
 
-/** @brief `sniff` (bare) and `sniff help` — the grouped, colored reference. */
+/** @brief `sniff` (bare) and `sniff help` - the grouped, colored reference. */
 static int cmd_sniff_help(const struct shell *sh, size_t argc, char **argv)
 {
 	/* Reached bare (`sniff`), via `sniff help`, or with an unrecognised
-	 * subcommand (`sniff foo`) — in that last case argc>1: name the bad word
+	 * subcommand (`sniff foo`) - in that last case argc>1: name the bad word
 	 * in red, then fall through to the full reference. */
 	if (argc > 1) {
 		shell_fprintf(sh, SHELL_VT100_COLOR_RED,

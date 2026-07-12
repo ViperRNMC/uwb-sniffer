@@ -1,4 +1,4 @@
-# Build output (west / CMake) — all generated Zephyr artifacts land here
+# Build output (west / CMake) - all generated Zephyr artifacts land here
 build/
 build*/
 

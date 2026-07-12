@@ -1,15 +1,15 @@
 /*
  * @file capture.c
- * @brief Passive HRP-UWB frame-capture engine — DW3110 radio layer.
+ * @brief Passive HRP-UWB frame-capture engine - DW3110 radio layer.
  *
  * Continuous, error-tolerant receive: RX is armed with rxtimeout 0 and
  * DWT_START_RX_IMMEDIATE, and the DW3000 rxok / rxto / rxerr callbacks each
  * emit one structured log line and immediately re-arm RX, so STS/FCS/PHY faults
- * never stall the loop — a faulted frame is still captured with whatever timing
+ * never stall the loop - a faulted frame is still captured with whatever timing
  * and diagnostics the CIA produced before the fault.
  *
- * Threading: the DW3000 driver's platform HAL (dw3000_hw.c) submits dwt_isr() —
- * and therefore these callbacks — to the system workqueue via k_work_submit(),
+ * Threading: the DW3000 driver's platform HAL (dw3000_hw.c) submits dwt_isr() -
+ * and therefore these callbacks - to the system workqueue via k_work_submit(),
  * not hard-IRQ context.  That makes SPI reads (dwt_readrxdata,
  * dwt_readdiagnostics, ...) legal here, and serialises all callbacks onto one
  * thread, so the file-scope scratch buffers below need no locking.  The whole
@@ -39,7 +39,7 @@
 LOG_MODULE_REGISTER(uwbcap, LOG_LEVEL_INF);
 
 /* ── Console styling ───────────────────────────────────────────────────────
- * VT100/ANSI escapes for the human-facing lines ONLY — the boot banner, the
+ * VT100/ANSI escapes for the human-facing lines ONLY - the boot banner, the
  * 1 Hz summary, and the scan trace (all via LOG_PRINTK, no log prefix).  The
  * machine-readable `UWBCAP` record lines (emit(), burst dump) stay plain so the
  * host parser is never handed an escape byte.  A non-VT100 terminal shows the
@@ -60,7 +60,7 @@ LOG_MODULE_REGISTER(uwbcap, LOG_LEVEL_INF);
  * @brief Expected DEV_ID (register 0x00, RIDTAG:MODEL:VER:REV) for the DW3110
  *        on the DWM3001CDK.  Reading this correctly over SPI is the cheap
  *        bring-up gate: it confirms the SPI + RESET pinmap is right before we
- *        trust anything else.  (A wrong IRQ pin still reads DEV_ID fine — that
+ *        trust anything else.  (A wrong IRQ pin still reads DEV_ID fine - that
  *        one is only proven once RX callbacks actually fire.)
  */
 #define CAP_DW3110_DEVID 0xDECA0302UL
@@ -81,7 +81,7 @@ static uint32_t g_devid;     /**< DEV_ID latched at bring-up; banner shows the v
  * A strong transmitter close to the sniffer floods the RX loop with real frames
  * plus a swarm of weak noise/partial detections.  Under CONFIG_LOG_MODE_IMMEDIATE
  * that can drown the console.  Frames whose peak is below this are still counted
- * and re-armed — just not printed — so a threshold isolates the strong frames
+ * and re-armed - just not printed - so a threshold isolates the strong frames
  * without dropping any from the tally.
  */
 static uint32_t g_min_peak;
@@ -147,15 +147,15 @@ static char g_line[512];
 /**
  * @brief Live PHY configuration.
  *
- * Defaults track the Aliro/CCC ranging PHY an Apple Wallet key negotiates —
+ * Defaults track the Aliro/CCC ranging PHY an Apple Wallet key negotiates -
  * CCC v4 Table 21-1 Config 0000, the one set shared by every frame in a round:
  * Channel 9, BPRF / PRF 64 MHz, 64-symbol preamble (PAC8), preamble code 9
  * (the phone's SYNC_Code_Index, carried in the plaintext M4 `07 01 09`),
- * 6.8 Mbps, and the IEEE-8 ternary SFD (dwt_sfd_type_e DWT_SFD_IEEE_4A — the
- * 4z SFD used by generic FiRa SFD-times-out on every Apple frame).
+ * 6.8 Mbps, and the IEEE-8 ternary SFD (dwt_sfd_type_e DWT_SFD_IEEE_4A; the
+ * generic 4z SFD SFD-times-out on every Apple frame).
  *
- * STS mode defaults to SP0 (STS off) so the Pre-POLL — the cleartext data frame
- * that leads each ranging round and carries poll_sts_index — is heard with no
+ * STS mode defaults to SP0 (STS off) so the Pre-POLL - the cleartext data frame
+ * that leads each ranging round and carries poll_sts_index - is heard with no
  * key.  The keyed POLL/RESP/FINAL are SP3-ND: load the session dURSK/STS-V
  * (`sniff stskey`/`stsiv`) and switch to `sniff sp 3` to decode those.
  * `sniff ccc` restores this whole set; sfdTO is recomputed from the preamble
@@ -180,7 +180,7 @@ static dwt_config_t g_cfg = {
 /* ── Custom STS key/IV (to decode a keyed session, e.g. CCC/Aliro) ───────────
  * The DW3000 default STS key never matches a real secure-ranging session, so
  * those frames always fault as STS_ERR.  When the session's STS_KEY (dURSK) and
- * STS_V are known — derived host-side from the URSK — loading them lets the STS
+ * STS_V are known - derived host-side from the URSK - loading them lets the STS
  * correlate so a matching frame decodes as OK.  Both are canonical big-endian
  * 16-byte arrays (byte 0 = MSB), exactly as the CCC deriver prints dURSK / STS-V.
  * dwt_configure() resets the STS registers, so apply_sts() re-loads after every
@@ -209,7 +209,7 @@ static const char *const g_ev_name[CAP_EV_COUNT] = {
  *
  * For watching live, not capture: no dBm (that stays host-side), no payload/STS
  * register reads.  A signal bar from the first-path magnitude (only when the CIA
- * is fresh — an errored frame's amplitude registers are stale), the event
+ * is fresh - an errored frame's amplitude registers are stale), the event
  * colored by class, then the key integer fields.  Printed prefix-free via
  * LOG_PRINTK so there is no `<inf> uwbcap:` clutter.
  */
@@ -257,7 +257,7 @@ static void emit_pretty(enum capture_event ev, uint64_t ts, int32_t cfo,
 }
 
 /**
- * @brief Render one frame in plain English (the `human` view) — same data as
+ * @brief Render one frame in plain English (the `human` view) - same data as
  *        raw / raw_pretty, spelled out: the event as words, signal strength as
  *        a word (only when the CIA is fresh), then clock offset / length / rate.
  */
@@ -299,14 +299,14 @@ static enum capture_event classify(uint32_t status)
 {
 	/* STS quality failure: CIA error OR CP error (CPERR = STS quality
 	 * warning/error, SYS_STATUS bit 0x10000000).  An SP3 frame received with
-	 * a non-matching STS sets CPERR, not CIAERR — checking only CIAERR (the
+	 * a non-matching STS sets CPERR, not CIAERR - checking only CIAERR (the
 	 * old behaviour) missed it and mislabelled the frame FCS_ERR. */
 	if (status & (DWT_INT_CIAERR_BIT_MASK | DWT_INT_CPERR_BIT_MASK)) {
 		return CAP_EV_STS_ERR;
 	}
 	/* RXFCE = frame CRC error.  In SP3 (STS-no-data) there is no PHR / PSDU /
 	 * FCS, so the RXFCE the chip raises on an unresolved STS-only frame is
-	 * spurious — ignore it there.  SP0/SP1/SP2 carry a real FCS, so it stands. */
+	 * spurious - ignore it there.  SP0/SP1/SP2 carry a real FCS, so it stands. */
 	if ((status & DWT_INT_RXFCE_BIT_MASK) && g_cfg.stsMode != DWT_STS_MODE_ND) {
 		return CAP_EV_FCS_ERR;
 	}
@@ -365,8 +365,8 @@ static void emit(const dwt_cb_data_t *d)
 	g_stats.per_event[ev]++;
 	g_stats.total++;
 
-	/* Preamble-code scan: only tally (done above) and re-arm — no register
-	 * reads, no printing — while the summary thread steps codes and picks the
+	/* Preamble-code scan: only tally (done above) and re-arm - no register
+	 * reads, no printing - while the summary thread steps codes and picks the
 	 * live one. */
 	if (g_scan_active) {
 		g_index++;
@@ -382,7 +382,7 @@ static void emit(const dwt_cb_data_t *d)
 	uint16_t len = d->datalength;
 	const int rng = (d->rx_flags & DWT_CB_DATA_RX_FLAG_RNG) ? 1 : 0;
 	/* CIA-done flag: the DW3000 only fully refreshes the CIR diagnostic
-	 * registers (cir/f1/f2/f3/fpidx/acc/peak) when the CIA completes — i.e.
+	 * registers (cir/f1/f2/f3/fpidx/acc/peak) when the CIA completes - i.e.
 	 * on a good frame.  On an errored frame CIA aborts and those registers
 	 * keep stale values, so cia=0 marks the diagnostics as untrustworthy
 	 * (the timestamp and clock offset are still re-latched every frame). */
@@ -390,7 +390,7 @@ static void emit(const dwt_cb_data_t *d)
 	const char *dr = (g_cfg.dataRate == DWT_BR_6M8) ? "6M8" : "850K";
 
 	/* Timing/diagnostics only exist once a frame (or at least its preamble +
-	 * CIA) was seen — i.e. everything except a bare timeout. */
+	 * CIA) was seen - i.e. everything except a bare timeout. */
 	if (ev != CAP_EV_TO) {
 		uint8_t ts5[5] = {0};
 
@@ -421,7 +421,7 @@ static void emit(const dwt_cb_data_t *d)
 	}
 
 	/* Burst capture takes priority: stash the frame's key fields and re-arm in
-	 * microseconds — no printing — so a ranging round's back-to-back frames are
+	 * microseconds - no printing - so a ranging round's back-to-back frames are
 	 * not dropped by the console.  Real frames only (a timeout carries no ts). */
 	if (g_burst_active) {
 		if (ev != CAP_EV_TO && g_burst_count < g_burst_target) {
@@ -446,7 +446,7 @@ static void emit(const dwt_cb_data_t *d)
 		return;
 	}
 
-	/* Summary view: suppress the per-frame line — the 1 Hz thread renders a
+	/* Summary view: suppress the per-frame line - the 1 Hz thread renders a
 	 * digest instead.  Frame is still counted (above) and RX re-armed (below). */
 	if (g_view == CAP_VIEW_SUMMARY) {
 		g_index++;
@@ -455,7 +455,7 @@ static void emit(const dwt_cb_data_t *d)
 	}
 
 	/* Peak/strength gate: below-threshold frames are counted (above) and
-	 * re-armed (below), just not logged — so a strong-transmitter burst
+	 * re-armed (below), just not logged - so a strong-transmitter burst
 	 * doesn't drown the console.  Applies only to frames that produced a
 	 * peak (non-timeout); TO events fall through and still print. */
 	if (g_min_peak && ev != CAP_EV_TO && diag.ipatovPeak < g_min_peak) {
@@ -541,11 +541,11 @@ static int rearm_rx(void)
 	return dwt_rxenable(DWT_START_RX_IMMEDIATE);
 }
 
-/** @brief rxok callback — good frame (and good STS in SP1/2/3). */
+/** @brief rxok callback - good frame (and good STS in SP1/2/3). */
 static void cb_rx_ok(const dwt_cb_data_t *d) { emit(d); }
-/** @brief rxto callback — preamble/frame/SFD timeout. */
+/** @brief rxto callback - preamble/frame/SFD timeout. */
 static void cb_rx_to(const dwt_cb_data_t *d) { emit(d); }
-/** @brief rxerr callback — STS/CRC/PHY fault; frame still captured. */
+/** @brief rxerr callback - STS/CRC/PHY fault; frame still captured. */
 static void cb_rx_err(const dwt_cb_data_t *d) { emit(d); }
 
 /** @brief Preamble length in SYMBOLS from a DWT_PLEN_* register code. */
@@ -571,7 +571,7 @@ static uint16_t pac_symbols(uint8_t rxPAC)
  * @brief Program the custom STS key/IV into the DW3000.
  *
  * Must run after dwt_configure() (which resets the STS registers).  Byte order
- * matches Qorvo's own loader (fira_sts): the 128-bit KEY is written by reversing
+ * matches Qorvo's own loader: the 128-bit KEY is written by reversing
  * the whole 16-byte big-endian array, then packing four little-endian words
  * (STS_KEY0[7:0] holds the integer's *least* significant byte); the IV/V is
  * packed as four little-endian words with NO whole-array reversal.
@@ -615,7 +615,7 @@ static int apply_config(void)
 
 	/* sfdTO = preamble length + 1 + SFD length - PAC (Qorvo formula), in
 	 * preamble SYMBOLS.  txPreambLength / rxPAC are DWT_PLEN_* / DWT_PAC*
-	 * REGISTER CODES (e.g. DWT_PLEN_64 == 0x07), not symbol counts — feeding the
+	 * REGISTER CODES (e.g. DWT_PLEN_64 == 0x07), not symbol counts - feeding the
 	 * raw enum here gives sfdTO=8, which closes the SFD-detect window before the
 	 * SFD arrives and turns every frame into a bogus RXSTO/TO.  Decode to symbols
 	 * first.  The IEEE-4z BPRF SFD is 8 symbols. */
@@ -629,7 +629,7 @@ static int apply_config(void)
 
 	/* Log the full CIA diagnostic register set.  Without this the RX
 	 * diagnostic registers (CIR power, F1/F2/F3, FP index, accum count)
-	 * read back as 0 — the RX timestamp still works, but RSSI/first-path
+	 * read back as 0 - the RX timestamp still works, but RSSI/first-path
 	 * would be blank.  dwt_configure() resets this, so re-apply it here. */
 	dwt_configciadiag(DW_CIA_DIAG_LOG_ALL);
 
@@ -788,7 +788,7 @@ int capture_set_sp(uint8_t sp)
 }
 int capture_set_ccc(void)
 {
-	/* CCC v4 Table 21-1 Config 0000 — the PHY an Apple Wallet key uses for every
+	/* CCC v4 Table 21-1 Config 0000 - the PHY an Apple Wallet key uses for every
 	 * frame in an Aliro/CCC ranging round.  One reconfigure; leaves any loaded
 	 * STS key/IV untouched.  Preamble code 9 is the phone's usual SYNC_Code_Index
 	 * (M4 `07 01 09`); if a session negotiates a different one, `sniff scan` or
@@ -802,7 +802,7 @@ int capture_set_ccc(void)
 	g_cfg.dataRate       = DWT_BR_6M8;
 	g_cfg.phrMode        = DWT_PHRMODE_STD;
 	g_cfg.phrRate        = DWT_PHRRATE_STD;
-	g_cfg.stsMode        = DWT_STS_MODE_OFF; /* SP0 — hear the cleartext Pre-POLL */
+	g_cfg.stsMode        = DWT_STS_MODE_OFF; /* SP0 - hear the cleartext Pre-POLL */
 	g_cfg.stsLength      = DWT_STS_LEN_64;
 	g_cfg.pdoaMode       = DWT_PDOA_M0;
 	return reconfigure();
@@ -921,7 +921,7 @@ int capture_scan(void)
  * In human view emit() suppresses the per-frame machine lines; this thread
  * prints one digest per second instead: presence, an eyeball signal bar (from
  * the strongest first-path magnitude that second), the frame rate, and running
- * counts.  Lowest priority, off the radio path — no dBm/float, no jargon.
+ * counts.  Lowest priority, off the radio path - no dBm/float, no jargon.
  */
 static void summary_thread(void *a, void *b, void *c)
 {
@@ -936,7 +936,7 @@ static void summary_thread(void *a, void *b, void *c)
 	while (true) {
 		k_sleep(K_SECONDS(1));
 
-		/* A completed burst dumps here (thread context — slow UART is fine;
+		/* A completed burst dumps here (thread context - slow UART is fine;
 		 * capture already happened): one parseable UWBCAP line per frame. */
 		if (g_burst_ready) {
 			g_burst_ready = false;
@@ -1027,7 +1027,7 @@ static void summary_thread(void *a, void *b, void *c)
 		}
 
 		/* Signal bar 0..10 from the strongest first-path magnitude this
-		 * second.  Relative and bench-dependent — an eyeball gauge, not
+		 * second.  Relative and bench-dependent - an eyeball gauge, not
 		 * a calibrated dBm; RSSI/dBm stays host-side in the parser. */
 		int lvl = (sig > 0x100u) ? (int)((sig - 0x100u) / 0x100u) : 0;
 

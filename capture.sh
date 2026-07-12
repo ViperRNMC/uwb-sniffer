@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# capture.sh — record / decode the DWM3001CDK VCOM console (macOS).
+# capture.sh - record / decode the DWM3001CDK VCOM console (macOS).
 # Run with no arguments for usage.
 set -euo pipefail
 
@@ -8,21 +8,21 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
 	cat <<EOF
-capture.sh — record / decode the DWM3001CDK console (macOS)
+capture.sh - record / decode the DWM3001CDK console (macOS)
 
 Usage:
   ./capture.sh rec [out.log]        show decoded frames live in the terminal while saving the
                                     raw log to out.log (default capture.log); Ctrl-C stops
-  ./capture.sh --sp0 [out.log]      force SP0 (STS off) first — hear the cleartext CCC
+  ./capture.sh --sp0 [out.log]      force SP0 (STS off) first - hear the cleartext CCC
                                     Pre-POLL; resets the board if left in another SP mode
   ./capture.sh --sp1 [out.log]      same, but set SP1 first so frames carry a PSDU
                                     (needed before --pcap can dissect them)
   ./capture.sh --scan [out.log]     lock onto the transmitter's live preamble code
-                                    first (FiRa/Apple negotiate it); combine with --sp1
+                                    first (Apple negotiates it); combine with --sp1
   ./capture.sh --pcap <in.log>      convert a recorded log to <in>.pcap and open it in Wireshark
   ./capture.sh -h | --help          show this help
 
-Port is auto-detected — the CDK is the single-VCOM SEGGER J-Link. Override with:
+Port is auto-detected - the CDK is the single-VCOM SEGGER J-Link. Override with:
   PORT=/dev/cu.usbmodemXXX ./capture.sh ...     exact device path
   CDK_SERIAL=<serial> ./capture.sh ...          same serial as \`west flash --dev-id\`
 EOF
@@ -58,7 +58,7 @@ if os.environ.get("PORT"):
 
 ports = jlink_ports()
 if not ports:
-    sys.exit("no SEGGER J-Link VCOM found — is the CDK plugged in? "
+    sys.exit("no SEGGER J-Link VCOM found - is the CDK plugged in? "
              "(or set PORT=/dev/cu.usbmodemXXX)")
 
 cdk = os.environ.get("CDK_SERIAL")
@@ -74,7 +74,7 @@ singles = [b for b, s in ports if per_serial[s] == 1]
 if len(singles) == 1:
     print(singles[0]); sys.exit(0)
 
-sys.stderr.write("can't pick a port automatically — J-Link VCOMs found:\n")
+sys.stderr.write("can't pick a port automatically - J-Link VCOMs found:\n")
 for b, s in ports:
     sys.stderr.write(f"  {b}  (J-Link serial {s})\n")
 sys.stderr.write("choose one:  CDK_SERIAL=<serial> ./capture.sh ...   "
@@ -119,7 +119,7 @@ echo "recording $port @ ${BAUD} -> $out   (decoded live; Ctrl-C to stop)" >&2
 # Hold the port open on fd 3 for the whole session. On macOS every fresh open of
 # a tty resets its termios to the 9600 default, so configuring with `stty` and
 # then reopening via `cat` would read at the wrong baud (binary garbage). One
-# persistent fd means the stty settings — and our writes — apply to that session.
+# persistent fd means the stty settings - and our writes - apply to that session.
 exec 3<>"$port"
 stty -f "$port" "$BAUD" cs8 -parenb -cstopb -crtscts raw -echo
 
@@ -127,7 +127,7 @@ stty -f "$port" "$BAUD" cs8 -parenb -cstopb -crtscts raw -echo
 printf 'sniff raw\r' >&3
 [ "$sp0" -eq 1 ] && printf 'sniff sp 0\r' >&3
 [ "$drive" -eq 1 ] && printf 'sniff sp 1\r' >&3
-# Lock onto the transmitter's live preamble code (FiRa/Apple negotiate it).
+# Lock onto the transmitter's live preamble code (Apple negotiates it).
 [ "$scan" -eq 1 ] && printf 'sniff scan\r' >&3
 
 # tee keeps the raw log; the parser turns the same stream into a live table.

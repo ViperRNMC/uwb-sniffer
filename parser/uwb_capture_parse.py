@@ -90,8 +90,8 @@ def parse_line(line: str) -> Frame | None:
     if "idx" not in kv or "ev" not in kv:
         return None
 
-    # A garbled line — e.g. immediate-mode log output interleaved mid-write, so
-    # a timestamp lands in a numeric field — must not kill the whole run; skip
+    # A garbled line - e.g. immediate-mode log output interleaved mid-write, so
+    # a timestamp lands in a numeric field - must not kill the whole run; skip
     # it and move on.
     try:
         sts_present = kv.get("sts", "off") != "off"
@@ -130,7 +130,7 @@ def parse_line(line: str) -> Frame | None:
     # Derive dBm figures only when CIA completed (diagnostics fresh) and we
     # have a valid preamble accumulation.  On errored frames (cia=0) the DW3000
     # amplitude/power registers hold stale values, so deriving dBm from them
-    # would be misleading — leave rssi/fp as None.
+    # would be misleading - leave rssi/fp as None.
     if cia_done and acc > 0:
         n2 = float(acc) * float(acc)
         if cir > 0:
@@ -195,11 +195,11 @@ def write_pcap(frames: list[Frame], out, withfcs: bool = True) -> int:
 
     Each captured PSDU (`pl=` bytes: MHR + payload + FCS) becomes one packet
     under DLT_IEEE802_15_4, so Wireshark's 802.15.4/802.15.4z dissector renders
-    the frame control, addressing and FiRa fields we can't decode by hand.
+    the frame control, addressing and 802.15.4z fields we can't decode by hand.
 
     Timestamps are a monotonic timeline rebuilt from the DW3000 device-time RX
     stamps (wrap-safe), so inter-frame and inter-round gaps are preserved to the
-    nanosecond — the part that actually matters for reading round structure.
+    nanosecond - the part that actually matters for reading round structure.
 
     The default SP0 (STS off, e.g. the CCC Pre-POLL) and SP1 (STS + data) carry
     a PSDU; SP3 (STS-no-data) does not, so a pure-SP3 capture lands nothing here.
@@ -218,7 +218,7 @@ def write_pcap(frames: list[Frame], out, withfcs: bool = True) -> int:
         try:
             data = bytes.fromhex(f.payload_hex)
         except ValueError:
-            continue  # garbled hex — skip, keep the rest of the capture
+            continue  # garbled hex - skip, keep the rest of the capture
         if prev_stamp is not None:
             t_ns += ((f.rx_stamp - prev_stamp) % _TS_WRAP) * _TICK_NS
         prev_stamp = f.rx_stamp
@@ -235,8 +235,8 @@ def _detect_rounds(stamps: list[int]) -> tuple[list[int], list[float], list[floa
 
     Ranging is bursty: a few frames within a round (small gaps) separated by the
     ranging interval (large gaps).  A gap below 30% of the median splits as
-    intra-round; anything larger starts a new round.  Device-agnostic — this is
-    the generic FiRa / 802.15.4z round shape, not iPhone-specific.
+    intra-round; anything larger starts a new round.  Device-agnostic - this is
+    the generic 802.15.4z round shape, not iPhone-specific.
 
     Returns (frames_per_round, intra_round_gaps_ns, between_round_gaps_ns).
     """
@@ -260,17 +260,17 @@ def _detect_rounds(stamps: list[int]) -> tuple[list[int], list[float], list[floa
 def analyze(frames: list[Frame]) -> str:
     """Plain-language 'what's going on' summary of a passive capture.
 
-    Reconstructs the *shape* of the exchange — how many transmitters (by
+    Reconstructs the *shape* of the exchange - how many transmitters (by
     clock-offset fingerprint), the rhythm between frames, and signal strength.
     It cannot see contents (encrypted), identity, or true distance.
     """
     real = [f for f in frames if f.event in ("OK", "STS_ERR") and f.rx_stamp > 0]
     out: list[str] = [
-        f"UWB activity — {len(frames)} events captured, {len(real)} real ranging frames"
+        f"UWB activity - {len(frames)} events captured, {len(real)} real ranging frames"
     ]
     if not real:
         out.append(
-            "  No ranging frames — aim at an active UWB device and use `sniff raw`."
+            "  No ranging frames - aim at an active UWB device and use `sniff raw`."
         )
         return "\n".join(out)
 
@@ -282,7 +282,7 @@ def analyze(frames: list[Frame]) -> str:
             f"(~{len(real) / (span_ns / 1e9):.0f} frames/s seen)"
         )
 
-    # Who's talking — group by clock-offset fingerprint.  A stray frame or two
+    # Who's talking - group by clock-offset fingerprint.  A stray frame or two
     # is drift/noise, not a radio: only groups holding a real share of frames
     # count.
     groups = _cluster_cfo([f.cfo_raw for f in real])
@@ -306,7 +306,7 @@ def analyze(frames: list[Frame]) -> str:
     if strays:
         out.append(f"  (+{strays} stray frames from clock drift/noise, ignored.)")
 
-    # Ranging rounds — the two-timescale (intra-burst vs between-round) shape.
+    # Ranging rounds - the two-timescale (intra-burst vs between-round) shape.
     sizes, intra, inter = _detect_rounds(stamps)
     out.append("")
     out.append("Ranging rounds:")
@@ -331,7 +331,7 @@ def analyze(frames: list[Frame]) -> str:
         rep = sorted(intra)[len(intra) // 2]
         out.append(
             f"  mostly 1 frame/round, but {multi} rounds caught >=2 frames "
-            f"(~{_fmt_gap(rep)} apart) — a glimpse of the intra-round burst."
+            f"(~{_fmt_gap(rep)} apart) - a glimpse of the intra-round burst."
         )
         out.append("  Most are still dropped; match the session's preamble code")
         out.append(
@@ -339,7 +339,7 @@ def analyze(frames: list[Frame]) -> str:
         )
     else:
         out.append(
-            "  only ~1 frame/round captured — the intra-round POLL/RESPONSE/FINAL burst"
+            "  only ~1 frame/round captured - the intra-round POLL/RESPONSE/FINAL burst"
         )
         out.append("  is being dropped. Match the session's preamble code (sweep")
         out.append("  `sniff preamble 9..12`), then `sniff burst`.")
@@ -449,7 +449,7 @@ def main(argv: list[str]) -> int:
         print(f"wrote {n} frames to {args.pcap}", file=sys.stderr)
         if n == 0:
             print(
-                "  (no data-bearing frames — SP3 carries no PSDU; "
+                "  (no data-bearing frames - SP3 carries no PSDU; "
                 "capture with the default `sniff sp 0` or `sniff sp 1`)",
                 file=sys.stderr,
             )

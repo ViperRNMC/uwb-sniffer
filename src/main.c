@@ -1,6 +1,6 @@
 /*
  * @file main.c
- * @brief Passive HRP-UWB frame-capture firmware entry point — DWM3001CDK.
+ * @brief Passive HRP-UWB frame-capture firmware entry point - DWM3001CDK.
  *
  * Brings the DW3110 up, prints the one-time config banner, and arms continuous
  * receive.  From then on the capture engine (capture.c) logs one line per RX
@@ -23,7 +23,7 @@ int main(void)
 	capture_print_banner();
 
 	if (err) {
-		LOG_ERR("capture_init failed: %d — check DW3110 wiring/power", err);
+		LOG_ERR("capture_init failed: %d - check DW3110 wiring/power", err);
 		return 0; /* Keep the shell alive so the operator can retry. */
 	}
 

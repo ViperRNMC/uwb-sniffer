@@ -4,9 +4,9 @@
  *
  * Wraps Qorvo's portable `dwt_uwb_driver` (the DW3000 driver module) in a
  * receive-only capture loop: the radio is armed for continuous, error-tolerant
- * RX and every RX event — good frame, STS/CRC/PHY error, or timeout — is logged
- * as one structured line and RX is immediately re-armed.  No FiRa/uwbmac MAC is
- * involved; this builds directly on the PHY driver.
+ * RX and every RX event - good frame, STS/CRC/PHY error, or timeout - is logged
+ * as one structured line and RX is immediately re-armed.  This builds directly
+ * on the PHY driver.
  *
  * All radio access stays inside capture.c (the "radio layer"); main.c and
  * shell_cmds.c only touch this API.
@@ -86,8 +86,8 @@ int capture_set_ccc(void);
  *        secure-ranging session (e.g. CCC/Aliro).
  *
  * The DW3000 default STS key never matches a real session, so such frames always
- * fault as STS_ERR.  Given the session's key material — derived host-side from
- * the URSK — loading it lets the STS correlate so a matching frame decodes as OK
+ * fault as STS_ERR.  Given the session's key material - derived host-side from
+ * the URSK - loading it lets the STS correlate so a matching frame decodes as OK
  * (event RXFCG, positive `sts` quality).  Both take a canonical big-endian
  * 16-byte value (byte 0 = MSB), exactly as the CCC deriver prints dURSK (key)
  * and STS-V (iv).  Applied immediately; re-arms RX if it was running.

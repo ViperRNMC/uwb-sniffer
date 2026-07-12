@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.20.0)
 # Pull in the Qorvo/Decawave DW3000 decadriver as a Zephyr module.  It carries
 # its own zephyr/module.yml + Kconfig (CONFIG_DW3000) and compiles only when
 # CONFIG_DW3000=y (set in prj.conf).  Place the driver at external/dw3000 (see
-# the README — e.g. `git submodule add <driver-repo> external/dw3000`).
+# the README - e.g. `git submodule add <driver-repo> external/dw3000`).
 set(DW3000_MODULE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/dw3000)
 if(NOT EXISTS ${DW3000_MODULE_DIR}/dwt_uwb_driver/deca_device_api.h)
   message(FATAL_ERROR
