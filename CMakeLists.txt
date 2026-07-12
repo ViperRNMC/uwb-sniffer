@@ -1,3 +1,5 @@
+# Copyright (c) 2026 asxeem
+# Licensed under the MIT License - see LICENSE file in the repo root for details.
 # Passive HRP-UWB frame-capture firmware for the Qorvo DWM3001CDK
 # (DW3110 + nRF52833).  Out-of-tree Zephyr / nRF Connect SDK application that
 # builds against the Qorvo DW3000 "decadriver" (dwt_uwb_driver) supplied as a

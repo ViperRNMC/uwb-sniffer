@@ -1,3 +1,5 @@
+// Copyright (c) 2026 asxeem
+// Licensed under the MIT License - see LICENSE file in the repo root for details.
 /*
  * @file capture.h
  * @brief Passive HRP-UWB frame-capture engine for the DWM3001CDK (DW3110).

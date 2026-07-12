@@ -100,6 +100,14 @@ python3 parser/uwb_capture_parse.py capture.log --pcap out.pcap  # 802.15.4 for 
 
 The per-field `UWBCAP` record format, STS-key byte order, and known limits are documented inline in [`src/capture.c`](src/capture.c) and the parser.
 
+## Credits
+
+This firmware is our own work, but it stands on third-party code we build against and call into:
+
+- **Qorvo** for the `dwt_uwb_driver` DW3000 "decadriver" PHY API this app is written directly on top of. It carries Qorvo's own license and is not vendored here.
+- **[`br101/zephyr-dw3000-decadriver`](https://github.com/br101/zephyr-dw3000-decadriver)** (GitHub `br101`) for the ISC-licensed Zephyr module glue that packages the Qorvo driver as the out-of-tree module at `external/dw3000`.
+- **The [Zephyr Project](https://www.zephyrproject.org/) (Apache-2.0) and Nordic Semiconductor's [nRF Connect SDK](https://developer.nordicsemi.com/nRF_Connect_SDK/doc/latest/nrf/index.html)** for the RTOS, board support, and build system this app targets.
+
 ## License
 
-MIT. See [`LICENSE`](LICENSE). The Qorvo DW3000 driver under `external/dw3000` is not part of this repo and is governed by its own license.
+MIT. See [`LICENSE`](LICENSE). Our source files carry a short MIT header; the Qorvo DW3000 driver under `external/dw3000` is not part of this repo and is governed by its own license.

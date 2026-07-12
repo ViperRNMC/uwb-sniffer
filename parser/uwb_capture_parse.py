@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 asxeem
+# Licensed under the MIT License - see LICENSE file in the repo root for details.
 """Parse DWM3001CDK passive-capture log lines into structured rows.
 
 The firmware emits one `UWBCAP ...` line per RX event over RTT/UART.  This

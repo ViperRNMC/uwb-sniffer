@@ -1,3 +1,5 @@
+// Copyright (c) 2026 asxeem
+// Licensed under the MIT License - see LICENSE file in the repo root for details.
 /*
  * @file shell_cmds.c
  * @brief `sniff` shell command tree for the passive capture engine.

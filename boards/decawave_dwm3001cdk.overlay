@@ -1,3 +1,5 @@
+// Copyright (c) 2026 asxeem
+// Licensed under the MIT License - see LICENSE file in the repo root for details.
 /*
  * DWM3001CDK - DW3110 device node for the Qorvo/Decawave `decawave,dw3000`
  * binding (the DW3000 driver module at external/dw3000).
