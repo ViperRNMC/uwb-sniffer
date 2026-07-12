@@ -214,11 +214,70 @@ avoid float/`log10` in the IRQ workqueue).
 ## Shell (RTT / UART)
 
 ```
+sniff | sniff help                                   # grouped command reference
 sniff start | stop
-sniff chan <5|9>            sniff preamble <code>      sniff plen <64|128|256|512>
-sniff sfd <0..3>           sniff sp <0..3>          sniff minpeak <hex>
-sniff stskey <32hex>|off   sniff stsiv <32hex>      sniff stats [clear]
+sniff summary | human | raw_pretty | raw             # output views (below)
+sniff chan <5|9>   sniff preamble <code>   sniff plen <64|128|256|512>
+sniff sfd <0..3>   sniff sp <0..3>         sniff ccc
+sniff scan         sniff burst [N]         sniff minpeak <hex>
+sniff stskey <32hex>|off   sniff stsiv <32hex>   sniff stats [clear]
 ```
+
+### Output views
+
+Every RX event is available in four renderings; switch live:
+
+- **`summary`** (default) — a calm 1 Hz gauge: presence, a relative signal bar,
+  and the ranging-round rate. Answers "is anything happening?".
+- **`human`** — one plain-English line per frame (event / signal / clock / length
+  as words), with a `time` column.
+- **`raw_pretty`** — one compact, colored, aligned line per frame, with a bold
+  header row and a `time` column; its columns map 1:1 onto `raw`.
+- **`raw`** — the per-frame `UWBCAP key=value` machine lines for the parser / pcap
+  (typing `sniff raw` also prints a field legend).
+
+### Example — a live Aliro/CCC ranging session
+
+Boot, then the default `summary` view while an iOS **Aliro** lock ran a UWB
+ranging session next to the sniffer (in the terminal `UWB SNIFFER` is bold cyan,
+`OK` and every `ACTIVE` + signal bar are green, `quiet` is dim):
+
+```
+  UWB SNIFFER   DWM3001CDK / DW3110  -  802.15.4z HRP  -  receive-only
+  DEV_ID  0xDECA0302  OK
+  radio   chan 9  code 9  plen 64  sfd 0  6.8Mb  SP0
+  view    summary    type 'sniff' for commands
+
+[00:00:00.339,324] <inf> uwbcap: capture: RX armed (continuous)
+  quiet    [####### ]  close  rounds 9/s (~111ms)  seen 0
+  ACTIVE   [#########]  close  rounds 9/s (~111ms)  seen 4
+  ACTIVE   [#########]  close  rounds 9/s (~111ms)  seen 20
+  ACTIVE   [#########]  close  rounds 8/s (~125ms)  seen 57
+  ACTIVE   [#########]  close  rounds 6/s (~166ms)  seen 96
+  ACTIVE   [#########]  close  rounds 8/s (~125ms)  seen 150
+```
+
+Each line prints once per second:
+
+- **`ACTIVE` / `quiet`** — whether frames decoded cleanly (`OK` + `STS_ERR`) that
+  second; PHY/CRC errors and timeouts don't count as activity.
+- **`[#########] close`** — a *relative* signal bar from the first-path magnitude
+  (`f1`): near-full → strong, hence `close`. A bench gauge, not a calibrated
+  distance/dBm (dBm is derived host-side in the parser).
+- **`rounds 9/s (~111ms)`** — ranging rounds detected, ~9 per second (one every
+  ~111 ms). A "round" starts when any frame arrives after a >50 ms gap, so this
+  tracks the lock's ranging cadence whether or not each frame decodes.
+- **`seen N`** — running total of the cleanly-decoded frames. At the default
+  **SP0** config those are the cleartext **Pre-POLL** at the head of each Aliro/CCC
+  round, so a rising `seen` means the sniffer is decoding the Pre-POLLs.
+
+So this is the Aliro lock's UWB ranging captured out of the box — ~9 rounds/s,
+strong and close, with the cleartext Pre-POLL decoding at the head of each round.
+The encrypted **POLL / RESP / FINAL** that follow are SP3-ND and show up as errors
+here; decode them by loading the session key and switching to SP3 (`sniff
+stskey`/`stsiv` + `sniff sp 3`, below). The `rounds/s` easing from 9→6→8 is the
+*smoothed* rate — the session's cadence varying and/or the immediate-log path
+dropping a few Pre-POLLs during faster sub-bursts (see *Known limitations*).
 
 ### STS quality without a key
 

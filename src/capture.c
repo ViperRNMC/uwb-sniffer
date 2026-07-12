@@ -38,6 +38,21 @@
 
 LOG_MODULE_REGISTER(uwbcap, LOG_LEVEL_INF);
 
+/* ── Console styling ───────────────────────────────────────────────────────
+ * VT100/ANSI escapes for the human-facing lines ONLY — the boot banner, the
+ * 1 Hz summary, and the scan trace (all via LOG_PRINTK, no log prefix).  The
+ * machine-readable `UWBCAP` record lines (emit(), burst dump) stay plain so the
+ * host parser is never handed an escape byte.  A non-VT100 terminal shows the
+ * escapes verbatim; a headless capture uses `sniff raw`, which drops the styled
+ * summary and leaves only the clean UWBCAP lines. */
+#define C_RST  "\x1b[0m"
+#define C_DIM  "\x1b[2m"
+#define C_B    "\x1b[1m"   /* bold */
+#define C_CY   "\x1b[36m"  /* cyan   */
+#define C_GRN  "\x1b[32m"  /* green  */
+#define C_YEL  "\x1b[33m"  /* yellow */
+#define C_RED  "\x1b[31m"  /* red    */
+
 /** @brief Longest payload we pull off-chip per frame (max 127-B standard HRP frame). */
 #define CAP_MAX_PAYLOAD 127
 
@@ -58,6 +73,7 @@ static bool g_running;       /**< RX currently armed. */
 
 static uint32_t g_index;     /**< Monotonic captured-event counter. */
 static struct capture_stats g_stats;
+static uint32_t g_devid;     /**< DEV_ID latched at bring-up; banner shows the verdict. */
 
 /**
  * @brief Minimum Ipatov CIR peak (IP_DIAG_1) to *log* a frame; 0 = log all.
@@ -71,16 +87,15 @@ static struct capture_stats g_stats;
 static uint32_t g_min_peak;
 
 /**
- * @brief Console output view.
+ * @brief Console output view (@ref capture_view).
  *
- * true  = one human-readable summary per second (per-frame lines suppressed) —
- *         readable in a serial terminal without the DW3000 manual.
- * false = the per-frame `UWBCAP key=value` machine lines (for the host parser).
- * Default human so the console is legible out of the box; `sniff raw` restores
- * the machine format for capture/analysis.
+ * SUMMARY is a calm 1 Hz aggregate gauge; HUMAN / RAW / RAW_PRETTY are three
+ * renderings of every frame (plain-English / machine key=value / compact
+ * colored).  Default SUMMARY so the console is legible out of the box.
  */
-#define CAP_DEFAULT_VIEW_HUMAN true
-static bool g_view_human = CAP_DEFAULT_VIEW_HUMAN;
+#define CAP_DEFAULT_VIEW CAP_VIEW_SUMMARY
+static enum capture_view g_view = CAP_DEFAULT_VIEW;
+static uint32_t g_pretty_line;   /**< raw_pretty row counter; drives header reprints. */
 
 /** @brief Strongest first-path magnitude (ipatovF1) seen in the current 1 s window. */
 static uint32_t g_win_sig;
@@ -188,6 +203,91 @@ static uint8_t g_sts_iv[16];  /* STS_V / IV,      canonical big-endian. */
 static const char *const g_ev_name[CAP_EV_COUNT] = {
 	"OK", "STS_ERR", "FCS_ERR", "PHY_ERR", "TO",
 };
+
+/**
+ * @brief Render one frame as a colored, aligned human line (the `pretty` view).
+ *
+ * For watching live, not capture: no dBm (that stays host-side), no payload/STS
+ * register reads.  A signal bar from the first-path magnitude (only when the CIA
+ * is fresh — an errored frame's amplitude registers are stale), the event
+ * colored by class, then the key integer fields.  Printed prefix-free via
+ * LOG_PRINTK so there is no `<inf> uwbcap:` clutter.
+ */
+static void emit_pretty(enum capture_event ev, uint64_t ts, int32_t cfo,
+			int cia, uint32_t f1, uint16_t len, const char *dr)
+{
+	static const char *const ev_col[CAP_EV_COUNT] = {
+		[CAP_EV_OK] = C_GRN, [CAP_EV_STS_ERR] = C_YEL,
+		[CAP_EV_FCS_ERR] = C_RED, [CAP_EV_PHY_ERR] = C_RED,
+		[CAP_EV_TO] = C_DIM,
+	};
+	int lvl = (cia && f1 > 0x100u) ? (int)((f1 - 0x100u) / 0x100u) : 0;
+
+	if (lvl > 10) {
+		lvl = 10;
+	}
+
+	char bar[11];
+
+	for (int i = 0; i < 10; i++) {
+		bar[i] = (i < lvl) ? '#' : ' ';
+	}
+	bar[10] = '\0';
+
+	const char *bcol = (lvl >= 7) ? C_GRN : (lvl >= 4) ? C_YEL
+			 : (lvl >= 1) ? C_RED : C_DIM;
+	uint32_t ms = k_uptime_get_32();
+
+	/* Column header on entry (g_pretty_line reset by capture_set_view) and every
+	 * 20 rows, so it stays visible as the stream scrolls.  Labels use the raw
+	 * field names so raw_pretty maps 1:1 onto `sniff raw`. */
+	if (g_pretty_line++ % 20u == 0u) {
+		LOG_PRINTK("\n" C_B "  %-12s  %-7s  %-7s  %-12s %5s  %3s  %-4s  %-10s"
+			   C_RST "\n",
+			   "time", "idx", "ev", "signal", "cfo", "len", "dr", "ts");
+	}
+
+	LOG_PRINTK("  " C_DIM "%02u:%02u:%02u.%03u" C_RST
+		   "  " C_DIM "#%06u" C_RST "  %s%-7s" C_RST "  %s[%s]" C_RST
+		   " %+5d  %3u  " C_DIM "%-4s" C_RST "  " C_DIM "%010llX" C_RST "%s\n",
+		   ms / 3600000u, (ms / 60000u) % 60u, (ms / 1000u) % 60u, ms % 1000u,
+		   g_index, ev_col[ev], g_ev_name[ev], bcol, bar,
+		   cfo, len, dr, (unsigned long long)ts,
+		   cia ? "" : C_DIM " stale" C_RST);
+}
+
+/**
+ * @brief Render one frame in plain English (the `human` view) — same data as
+ *        raw / raw_pretty, spelled out: the event as words, signal strength as
+ *        a word (only when the CIA is fresh), then clock offset / length / rate.
+ */
+static void emit_human(enum capture_event ev, int32_t cfo, int cia,
+		       uint32_t f1, uint16_t len, const char *dr)
+{
+	static const char *const ev_txt[CAP_EV_COUNT] = {
+		[CAP_EV_OK] = "good frame", [CAP_EV_STS_ERR] = "STS mismatch",
+		[CAP_EV_FCS_ERR] = "bad CRC", [CAP_EV_PHY_ERR] = "PHY error",
+		[CAP_EV_TO] = "timeout",
+	};
+	static const char *const ev_col[CAP_EV_COUNT] = {
+		[CAP_EV_OK] = C_GRN, [CAP_EV_STS_ERR] = C_YEL,
+		[CAP_EV_FCS_ERR] = C_RED, [CAP_EV_PHY_ERR] = C_RED,
+		[CAP_EV_TO] = C_DIM,
+	};
+	int lvl = (cia && f1 > 0x100u) ? (int)((f1 - 0x100u) / 0x100u) : 0;
+	const char *sig = !cia ? "n/a"
+			: (lvl >= 7) ? "strong" : (lvl >= 4) ? "medium"
+			: (lvl >= 1) ? "weak" : "none";
+
+	uint32_t ms = k_uptime_get_32();
+
+	LOG_PRINTK("  " C_DIM "%02u:%02u:%02u.%03u" C_RST
+		   "  " C_DIM "frame" C_RST " %-6u  %s%-12s" C_RST
+		   "  " C_DIM "signal" C_RST " %-6s  " C_DIM "clock" C_RST " %+5d"
+		   "  " C_DIM "len" C_RST " %3u B  " C_DIM "%s" C_RST "\n",
+		   ms / 3600000u, (ms / 60000u) % 60u, (ms / 1000u) % 60u, ms % 1000u,
+		   g_index, ev_col[ev], ev_txt[ev], sig, cfo, len, dr);
+}
 
 /**
  * @brief Classify a SYS_STATUS word into a @ref capture_event.
@@ -346,10 +446,9 @@ static void emit(const dwt_cb_data_t *d)
 		return;
 	}
 
-	/* Human view: suppress the per-frame machine line — the 1 Hz summary
-	 * thread renders a readable digest instead.  Frame is still counted
-	 * (above) and RX re-armed (below). */
-	if (g_view_human) {
+	/* Summary view: suppress the per-frame line — the 1 Hz thread renders a
+	 * digest instead.  Frame is still counted (above) and RX re-armed (below). */
+	if (g_view == CAP_VIEW_SUMMARY) {
 		g_index++;
 		(void)rearm_rx();
 		return;
@@ -360,6 +459,21 @@ static void emit(const dwt_cb_data_t *d)
 	 * doesn't drown the console.  Applies only to frames that produced a
 	 * peak (non-timeout); TO events fall through and still print. */
 	if (g_min_peak && ev != CAP_EV_TO && diag.ipatovPeak < g_min_peak) {
+		g_index++;
+		(void)rearm_rx();
+		return;
+	}
+
+	/* Per-frame human renderings (no STS/payload reads; prefix-free LOG_PRINTK).
+	 * CAP_VIEW_RAW falls through to the machine UWBCAP line below. */
+	if (g_view == CAP_VIEW_HUMAN) {
+		emit_human(ev, cfo, cia, diag.ipatovF1, len, dr);
+		g_index++;
+		(void)rearm_rx();
+		return;
+	}
+	if (g_view == CAP_VIEW_RAW_PRETTY) {
+		emit_pretty(ev, ts, cfo, cia, diag.ipatovF1, len, dr);
 		g_index++;
 		(void)rearm_rx();
 		return;
@@ -537,21 +651,13 @@ int capture_init(void)
 	k_msleep(5); /* DW3110 wake-after-reset latency (datasheet >= 2 ms). */
 
 	if (dwt_probe((struct dwt_probe_s *)&dw3000_probe_interf) != DWT_SUCCESS) {
-		LOG_ERR("dwt_probe failed — check SPI wiring (SCK/MOSI/MISO/CS) + RSTn");
+		LOG_ERR("dwt_probe failed - check SPI wiring (SCK/MOSI/MISO/CS) + RSTn");
 		return -EIO;
 	}
 
-	/* Bring-up gate: confirm the DEV_ID before doing anything else.  This
-	 * proves SPI + RESET are wired to the pins in the overlay. */
-	uint32_t devid = dwt_readdevid();
-
-	if (devid != CAP_DW3110_DEVID) {
-		LOG_WRN("DEV_ID=0x%08X, expected 0x%08X — pinmap/silicon mismatch",
-			(unsigned int)devid, (unsigned int)CAP_DW3110_DEVID);
-	} else {
-		LOG_INF("DEV_ID=0x%08X OK (DW3110) — SPI+RST pinmap confirmed",
-			(unsigned int)devid);
-	}
+	/* Bring-up gate: latch the DEV_ID (proves the SPI + RESET pinmap).  The
+	 * OK/MISMATCH verdict is rendered in the boot banner (capture_print_banner). */
+	g_devid = dwt_readdevid();
 
 	if (dwt_initialise(DWT_DW_INIT) != DWT_SUCCESS) {
 		LOG_ERR("dwt_initialise failed");
@@ -745,11 +851,20 @@ void capture_set_min_peak(uint32_t min_peak)
 		min_peak ? "throttled" : "log all");
 }
 
-void capture_set_view_human(bool human)
+void capture_set_view(enum capture_view view)
 {
-	g_view_human = human;
-	LOG_INF("capture: view = %s", human ? "human (1/s summary)"
-					     : "raw (per-frame UWBCAP lines)");
+	static const char *const name[] = {
+		[CAP_VIEW_SUMMARY]    = "summary (1 Hz gauge)",
+		[CAP_VIEW_HUMAN]      = "human (per-frame, plain)",
+		[CAP_VIEW_RAW]        = "raw (per-frame UWBCAP lines)",
+		[CAP_VIEW_RAW_PRETTY] = "raw_pretty (per-frame, compact)",
+	};
+
+	g_view = view;
+	if (view == CAP_VIEW_RAW_PRETTY) {
+		g_pretty_line = 0; /* force a fresh column header on the next frame */
+	}
+	LOG_INF("capture: view = %s", name[view]);
 }
 
 int capture_burst(uint32_t n_frames)
@@ -771,7 +886,7 @@ int capture_burst(uint32_t n_frames)
 	g_burst_target = n_frames;
 	g_burst_ready  = false;
 	g_burst_active = true;
-	LOG_INF("capture: burst — stashing %u frames to RAM (dumps when full)", n_frames);
+	LOG_INF("capture: burst - stashing %u frames to RAM (dumps when full)", n_frames);
 	return 0;
 }
 
@@ -825,7 +940,7 @@ static void summary_thread(void *a, void *b, void *c)
 		 * capture already happened): one parseable UWBCAP line per frame. */
 		if (g_burst_ready) {
 			g_burst_ready = false;
-			LOG_INF("=== burst: %u frames — feed to parser --analyze ===",
+			LOG_INF("=== burst: %u frames - feed to parser --analyze ===",
 				g_burst_count);
 			for (uint32_t i = 0; i < g_burst_count; i++) {
 				const struct burst_rec *r = &g_burst[i];
@@ -865,7 +980,8 @@ static void summary_thread(void *a, void *b, void *c)
 		if (g_scan_active) {
 			uint32_t hits = real - g_scan_base;
 
-			LOG_INF("[scan] code %u -> %u frames", g_scan_code, hits);
+			LOG_PRINTK("  " C_CY "scan" C_RST "  code " C_B "%u" C_RST
+				   " -> " C_B "%u" C_RST " frames\n", g_scan_code, hits);
 			if (hits > g_scan_best_hits) {
 				g_scan_best_hits = hits;
 				g_scan_best_code = g_scan_code;
@@ -880,13 +996,14 @@ static void summary_thread(void *a, void *b, void *c)
 
 				g_scan_active = false;
 				(void)capture_set_preamble_code(win);
-				LOG_INF("[scan] done — code %u wins (%u frames), locked in",
-					win, g_scan_best_hits);
+				LOG_PRINTK("  " C_CY "scan" C_RST "  locked code "
+					   C_GRN C_B "%u" C_RST " (%u frames)\n",
+					   win, g_scan_best_hits);
 			}
 			continue;
 		}
 
-		if (!g_view_human || !g_running) {
+		if (g_view != CAP_VIEW_SUMMARY || !g_running) {
 			continue;
 		}
 
@@ -918,22 +1035,28 @@ static void summary_thread(void *a, void *b, void *c)
 			lvl = 10;
 		}
 
+		/* 10-cell ASCII meter: '#' filled, ' ' empty (renders on any terminal). */
 		char bar[11];
 
 		for (int i = 0; i < 10; i++) {
-			bar[i] = (i < lvl) ? '#' : '.';
+			bar[i] = (i < lvl) ? '#' : ' ';
 		}
 		bar[10] = '\0';
 
-		const char *prox = (lvl >= 7) ? "~close"
-				 : (lvl >= 4) ? "~near"
-				 : (lvl >= 1) ? "~far" : "--";
-
+		const char *prox = (lvl >= 7) ? "close"
+				 : (lvl >= 4) ? "near"
+				 : (lvl >= 1) ? "far" : "--";
+		const char *barcol = (lvl >= 7) ? C_GRN
+				   : (lvl >= 4) ? C_YEL
+				   : (lvl >= 1) ? C_RED : C_DIM;
+		const char *statecol = real_rate ? C_GRN : C_DIM;
 		uint32_t rr = (rr_ewma + 8) / 16;
 
-		LOG_INF("[uwb] %-6s signal [%s] %-6s  rounds %u/s (~%ums)  seen %u",
-			real_rate ? "ACTIVE" : "quiet", bar, prox, rr,
-			rr ? 1000u / rr : 0u, real);
+		LOG_PRINTK("  %s%-6s" C_RST "  %s[%s]" C_RST "  " C_DIM "%-5s" C_RST
+			   "  rounds " C_B "%u" C_RST "/s " C_DIM "(~%ums)" C_RST
+			   "  " C_DIM "seen " C_RST C_B "%u" C_RST "\n",
+			   statecol, real_rate ? "ACTIVE" : "quiet", barcol, bar,
+			   prox, rr, rr ? 1000u / rr : 0u, real);
 	}
 }
 K_THREAD_DEFINE(uwb_summary_tid, 2048, summary_thread, NULL, NULL, NULL,
@@ -946,11 +1069,22 @@ void capture_print_banner(void)
 		   : (g_cfg.stsMode == DWT_STS_MODE_1)  ? 1
 		   : (g_cfg.stsMode == DWT_STS_MODE_2)  ? 2 : 3;
 
-	LOG_INF("=== DWM3001CDK passive UWB capture ===");
-	LOG_INF("chan=%u code=%u plen=%u sfd=%u %s dr=%s sfdTO=%u",
-		g_cfg.chan, g_cfg.rxCode, plen_symbols(g_cfg.txPreambLength),
-		g_cfg.sfdType, sp_name[sp],
-		(g_cfg.dataRate == DWT_BR_6M8) ? "6M8" : "850K", g_cfg.sfdTO);
-	LOG_INF("view=%s  (sniff human|raw)  start|stop chan|preamble|plen|sfd|sp|ccc|minpeak|stats",
-		g_view_human ? "human" : "raw");
+	bool ok = (g_devid == CAP_DW3110_DEVID);
+
+	LOG_PRINTK("\n  " C_B C_CY "UWB SNIFFER" C_RST
+		   C_DIM "   DWM3001CDK / DW3110  -  802.15.4z HRP  -  receive-only" C_RST "\n");
+	LOG_PRINTK("  " C_DIM "DEV_ID" C_RST "  " C_B "0x%08X" C_RST "  %s%s" C_RST "\n",
+		   (unsigned int)g_devid, ok ? C_GRN : C_RED, ok ? "OK" : "MISMATCH");
+	LOG_PRINTK("  " C_DIM "radio " C_RST " chan " C_B "%u" C_RST "  code " C_B "%u" C_RST
+		   "  plen " C_B "%u" C_RST "  sfd " C_B "%u" C_RST "  " C_B "%s" C_RST
+		   "  " C_B "%s" C_RST "\n",
+		   g_cfg.chan, g_cfg.rxCode, plen_symbols(g_cfg.txPreambLength),
+		   g_cfg.sfdType, (g_cfg.dataRate == DWT_BR_6M8) ? "6.8Mb" : "850K",
+		   sp_name[sp]);
+	const char *vname = (g_view == CAP_VIEW_SUMMARY) ? "summary"
+			  : (g_view == CAP_VIEW_HUMAN) ? "human"
+			  : (g_view == CAP_VIEW_RAW) ? "raw" : "raw_pretty";
+
+	LOG_PRINTK("  " C_DIM "view  " C_RST " " C_B "%s" C_RST
+		   C_DIM "    type 'sniff' for commands" C_RST "\n\n", vname);
 }

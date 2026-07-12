@@ -111,13 +111,20 @@ void capture_clear_sts(void);
 void capture_set_min_peak(uint32_t min_peak);
 
 /**
- * @brief Select the console output view.
- *
- * @param human  true  = one human-readable summary per second (the per-frame
- *                       `UWBCAP` machine lines are suppressed);
- *               false = the per-frame `UWBCAP key=value` lines (for the parser).
+ * @brief Console output view.  All are per-frame renderings of the same capture
+ *        except SUMMARY, which is a 1 Hz aggregate gauge.
  */
-void capture_set_view_human(bool human);
+enum capture_view {
+	CAP_VIEW_SUMMARY = 0, /**< 1 Hz gauge: signal bar + round rate; `sniff summary`. */
+	CAP_VIEW_HUMAN,       /**< Per-frame plain-English line; `sniff human`. */
+	CAP_VIEW_RAW,         /**< Per-frame `UWBCAP key=value` machine lines; `sniff raw`. */
+	CAP_VIEW_RAW_PRETTY,  /**< Per-frame compact colored line; `sniff raw_pretty`. */
+};
+
+/**
+ * @brief Select the console output view (@ref capture_view).  Applied immediately.
+ */
+void capture_set_view(enum capture_view view);
 
 /**
  * @brief Capture the next @p n_frames real frames into RAM at full radio speed,
