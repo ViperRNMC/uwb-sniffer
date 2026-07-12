@@ -1,0 +1,20 @@
+# Build output (west / CMake) — all generated Zephyr artifacts land here
+build/
+build*/
+
+# West workspace metadata (if a workspace is initialized in-tree)
+.west/
+
+# Python bytecode (parser/)
+__pycache__/
+*.pyc
+
+# Capture artifacts (raw logs + generated pcaps)
+*.log
+*.pcap
+
+# macOS
+.DS_Store
+
+# Local editor/tooling guidance (not published)
+CLAUDE.md

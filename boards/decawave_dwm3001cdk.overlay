@@ -1,0 +1,44 @@
+/*
+ * DWM3001CDK — DW3110 device node for the Qorvo/Decawave `decawave,dw3000`
+ * binding (the DW3000 driver module at external/dw3000).
+ *
+ * The in-tree NCS board `qorvo/decawave_dwm3001cdk` already enables &spi3
+ * (SCK P0.03, MOSI P0.08, MISO P0.29, CS P1.06 — see the board's
+ * *-pinctrl.dtsi and .dts) but does NOT declare the DW3110 child node, so we
+ * add it here.  Pin numbers are taken verbatim from Qorvo's own DWM3001CDK
+ * board config (DW3_QM33_SDK_1.1.1,
+ * Projects/FreeRTOS/<proj>/DWM3001CDK/ProjectDefinition/uwb_stack_llhw.cmake):
+ *
+ *   CONFIG_SPI_UWB_SCK_GPIO   = P0.03      CONFIG_SPI_UWB_MOSI_GPIO = P0.08
+ *   CONFIG_SPI_UWB_MISO_GPIO  = P0.29      CONFIG_SPI_UWB_CS_GPIO   = P1.06
+ *   CONFIG_DWT_IRQ_GPIO       = P1.02      CONFIG_DWT_RSTN_GPIO     = P0.25
+ *   CONFIG_DWT_WU_GPIO        = P1.19
+ *
+ * These match the NCS board's &spi3/CS pins exactly, cross-checked against the
+ * community svhoy uwb_zephyr_dwm3001cdk port.
+ */
+
+&spi3 {
+	status = "okay";
+	compatible = "nordic,nrf-spim";
+	cs-gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
+
+	dw3000: dw3000@0 {
+		compatible = "decawave,dw3000";
+		reg = <0>;
+		status = "okay";
+		/* Platform HAL clocks init at 2 MHz, then switches to this max
+		 * for bulk reads (dw3000_spi.c speed_slow/fast).  32 MHz is safe
+		 * on the integrated module (DW3110 rated to 38 MHz). */
+		spi-max-frequency = <32000000>;
+		irq-gpios   = <&gpio1 2  GPIO_ACTIVE_HIGH>;  /* DW_IRQ  P1.02 */
+		reset-gpios = <&gpio0 25 GPIO_ACTIVE_LOW>;   /* DW_RSTn P0.25 */
+		wakeup-gpios = <&gpio1 19 GPIO_ACTIVE_HIGH>; /* DW_WAKEUP P1.19 */
+	};
+};
+
+/ {
+	aliases {
+		dw3000 = &dw3000;
+	};
+};

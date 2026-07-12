@@ -1,0 +1,29 @@
+# west.yml — OPTIONAL self-contained nRF Connect SDK workspace for uwb-sniffer.
+#
+# You only need this if you do NOT already have an NCS install.  It pins NCS and
+# lets you spin up a dedicated workspace:
+#
+#     west init -l uwb-sniffer          # make this repo the manifest repo
+#     west update                       # fetch pinned NCS (Zephyr, HALs, ...)
+#     git submodule update --init       # the DW3000 driver at external/dw3000
+#
+# If you ALREADY have NCS v3.3.0, ignore this file and build the app freestanding
+# against your existing workspace (see README "Build", option B) — nothing here
+# forces a re-download; this manifest is only consumed when this repo is the
+# manifest repo of a west workspace.
+manifest:
+  version: "1.0"
+
+  remotes:
+    - name: nrfconnect
+      url-base: https://github.com/nrfconnect
+
+  projects:
+    - name: sdk-nrf
+      remote: nrfconnect
+      repo-path: sdk-nrf
+      revision: v3.3.0
+      import: true   # pulls Zephyr + HALs + modules at the versions NCS v3.3.0 pins
+
+  self:
+    path: uwb-sniffer
